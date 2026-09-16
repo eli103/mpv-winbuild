@@ -1,0 +1,243 @@
+From 99ecc34dfa3070879dcce1baeeab93f9d9924086 Mon Sep 17 00:00:00 2001
+From: Eric Li <lizhi.xmu@gmail.com>
+Date: Thu, 17 Sep 2026 03:15:33 +0800
+Subject: [PATCH] deps: materialise full source trees (sparse patterns missed
+ sub-directories)
+
+The recipes cloned with `--sparse` and then `sparse-checkout set --no-cone /* !tests`.
+In gitignore syntax `/*` matches top-level entries only, so sub-directories were never
+checked out. nghttp3's CMakeLists sets CMAKE_MODULE_PATH to <src>/cmake and then does
+include(Version) -> 'include could not find requested file: Version' -> configure fails.
+Upstream does not hit this because their cached build tree skips configure entirely.
+Affected recipes now materialise the full tree. The three intentionally narrow recipes
+(angle-headers, amf, ...) are untouched.
+---
+ packages/avisynth-headers.cmake | 2 +-
+ packages/brotli.cmake           | 2 +-
+ packages/curl.cmake             | 2 +-
+ packages/expat.cmake            | 2 +-
+ packages/ffmpeg.cmake           | 2 +-
+ packages/fribidi.cmake          | 2 +-
+ packages/glslang.cmake          | 2 +-
+ packages/harfbuzz.cmake         | 2 +-
+ packages/libmysofa.cmake        | 2 +-
+ packages/libpsl.cmake           | 2 +-
+ packages/libsdl2.cmake          | 2 +-
+ packages/libsixel.cmake         | 2 +-
+ packages/libxml2.cmake          | 2 +-
+ packages/nghttp3.cmake          | 2 +-
+ packages/ngtcp2.cmake           | 2 +-
+ packages/openssl.cmake          | 2 +-
+ 16 files changed, 16 insertions(+), 16 deletions(-)
+
+diff --git a/packages/avisynth-headers.cmake b/packages/avisynth-headers.cmake
+index eee0180..23f8617 100644
+--- a/packages/avisynth-headers.cmake
++++ b/packages/avisynth-headers.cmake
+@@ -2,7 +2,7 @@ ExternalProject_Add(avisynth-headers
+     GIT_REPOSITORY https://github.com/AviSynth/AviSynthPlus.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !distrib"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     GIT_SUBMODULES ""
+     UPDATE_COMMAND ""
+     GIT_RESET 21fdc997f9724b994896ba5520ddf64d677976b3
+diff --git a/packages/brotli.cmake b/packages/brotli.cmake
+index 9316c17..d5c0b14 100644
+--- a/packages/brotli.cmake
++++ b/packages/brotli.cmake
+@@ -2,7 +2,7 @@ ExternalProject_Add(brotli
+     GIT_REPOSITORY https://github.com/google/brotli.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests !js !java !research"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     UPDATE_COMMAND ""
+     CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR> -B<BINARY_DIR>
+         -G Ninja
+diff --git a/packages/curl.cmake b/packages/curl.cmake
+index bda7d40..6f6d9bb 100644
+--- a/packages/curl.cmake
++++ b/packages/curl.cmake
+@@ -13,7 +13,7 @@ ExternalProject_Add(curl
+     GIT_REPOSITORY https://github.com/curl/curl.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests !docs"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     PATCH_COMMAND ""
+     UPDATE_COMMAND ""
+     CONFIGURE_COMMAND ${EXEC} ${CMAKE_COMMAND} -H<SOURCE_DIR> -B<BINARY_DIR>
+diff --git a/packages/expat.cmake b/packages/expat.cmake
+index a39602c..a2795e1 100644
+--- a/packages/expat.cmake
++++ b/packages/expat.cmake
+@@ -2,7 +2,7 @@ ExternalProject_Add(expat
+     GIT_REPOSITORY https://github.com/libexpat/libexpat.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !testdata"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     UPDATE_COMMAND ""
+     GIT_REMOTE_NAME origin
+     CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR>/expat -B<BINARY_DIR>
+diff --git a/packages/ffmpeg.cmake b/packages/ffmpeg.cmake
+index b9ab7a3..f36eba6 100644
+--- a/packages/ffmpeg.cmake
++++ b/packages/ffmpeg.cmake
+@@ -47,7 +47,7 @@ ExternalProject_Add(ffmpeg
+     GIT_REPOSITORY https://github.com/FFmpeg/FFmpeg.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests/ref/fate"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     UPDATE_COMMAND ""
+     CONFIGURE_COMMAND ${EXEC} CONF=1 <SOURCE_DIR>/configure
+         --cross-prefix=${TARGET_ARCH}-
+diff --git a/packages/fribidi.cmake b/packages/fribidi.cmake
+index 40455a4..371028a 100644
+--- a/packages/fribidi.cmake
++++ b/packages/fribidi.cmake
+@@ -2,7 +2,7 @@ ExternalProject_Add(fribidi
+     GIT_REPOSITORY https://github.com/fribidi/fribidi.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !test"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     UPDATE_COMMAND ""
+     CONFIGURE_COMMAND ${EXEC} CONF=1 meson setup <BINARY_DIR> <SOURCE_DIR>
+         --prefix=${MINGW_INSTALL_PREFIX}
+diff --git a/packages/glslang.cmake b/packages/glslang.cmake
+index ca59d42..1e0e071 100644
+--- a/packages/glslang.cmake
++++ b/packages/glslang.cmake
+@@ -2,7 +2,7 @@ ExternalProject_Add(glslang
+     GIT_REPOSITORY https://github.com/KhronosGroup/glslang.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !Test"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     GIT_REMOTE_NAME origin
+     GIT_TAG main
+     UPDATE_COMMAND ""
+diff --git a/packages/harfbuzz.cmake b/packages/harfbuzz.cmake
+index 410494e..9151db0 100644
+--- a/packages/harfbuzz.cmake
++++ b/packages/harfbuzz.cmake
+@@ -7,7 +7,7 @@ ExternalProject_Add(harfbuzz
+     GIT_REMOTE_NAME origin
+     GIT_TAG main
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !test"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     UPDATE_COMMAND ""
+     CONFIGURE_COMMAND ${EXEC} CONF=1 meson setup <BINARY_DIR> <SOURCE_DIR>
+         --prefix=${MINGW_INSTALL_PREFIX}
+diff --git a/packages/libmysofa.cmake b/packages/libmysofa.cmake
+index 6416a6c..cf873c1 100644
+--- a/packages/libmysofa.cmake
++++ b/packages/libmysofa.cmake
+@@ -5,7 +5,7 @@ ExternalProject_Add(libmysofa
+     GIT_REMOTE_NAME origin
+     GIT_TAG main
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     UPDATE_COMMAND ""
+     CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR> -B<BINARY_DIR>
+         -G Ninja
+diff --git a/packages/libpsl.cmake b/packages/libpsl.cmake
+index ab94fb7..d4080d2 100644
+--- a/packages/libpsl.cmake
++++ b/packages/libpsl.cmake
+@@ -2,7 +2,7 @@ ExternalProject_Add(libpsl
+     GIT_REPOSITORY https://github.com/rockdaboot/libpsl.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !/fuzz !tests !tools tools/meson.build"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     GIT_REMOTE_NAME origin
+     GIT_RESET aa3a80e18f25caf3916636c8668dcc0fff7c016d
+     UPDATE_COMMAND ""
+diff --git a/packages/libsdl2.cmake b/packages/libsdl2.cmake
+index f84e5dd..d17d7c4 100644
+--- a/packages/libsdl2.cmake
++++ b/packages/libsdl2.cmake
+@@ -5,7 +5,7 @@ ExternalProject_Add(libsdl2
+     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !test"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     UPDATE_COMMAND ""
+     GIT_REMOTE_NAME origin
+     GIT_TAG SDL2
+diff --git a/packages/libsixel.cmake b/packages/libsixel.cmake
+index 373194b..0a5733a 100644
+--- a/packages/libsixel.cmake
++++ b/packages/libsixel.cmake
+@@ -2,7 +2,7 @@ ExternalProject_Add(libsixel
+     GIT_REPOSITORY https://github.com/saitoha/libsixel.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !images"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     UPDATE_COMMAND ""
+     GIT_RESET af12e5bc6f3f69ad83479da85ddb371420da9b17
+     CONFIGURE_COMMAND ${EXEC} <SOURCE_DIR>/autogen.sh && CONF=1 <SOURCE_DIR>/configure
+diff --git a/packages/libxml2.cmake b/packages/libxml2.cmake
+index 2148bd5..5eff989 100644
+--- a/packages/libxml2.cmake
++++ b/packages/libxml2.cmake
+@@ -5,7 +5,7 @@ ExternalProject_Add(libxml2
+     GIT_REPOSITORY https://github.com/GNOME/libxml2.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !result !test"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     UPDATE_COMMAND ""
+     CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR> -B<BINARY_DIR>
+         -G Ninja
+diff --git a/packages/nghttp3.cmake b/packages/nghttp3.cmake
+index 03aa88d..89f9d27 100644
+--- a/packages/nghttp3.cmake
++++ b/packages/nghttp3.cmake
+@@ -2,7 +2,7 @@ ExternalProject_Add(nghttp3
+     GIT_REPOSITORY https://github.com/ngtcp2/nghttp3.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--depth=1 --sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     GIT_SUBMODULES lib/sfparse
+     GIT_TAG main
+     GIT_REMOTE_NAME origin
+diff --git a/packages/ngtcp2.cmake b/packages/ngtcp2.cmake
+index 5aa9788..f0d9112 100644
+--- a/packages/ngtcp2.cmake
++++ b/packages/ngtcp2.cmake
+@@ -4,7 +4,7 @@ ExternalProject_Add(ngtcp2
+     GIT_REPOSITORY https://github.com/ngtcp2/ngtcp2.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--depth=1 --sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     GIT_SUBMODULES ""
+     GIT_TAG main
+     GIT_REMOTE_NAME origin
+diff --git a/packages/openssl.cmake b/packages/openssl.cmake
+index 7510e50..c2e6241 100644
+--- a/packages/openssl.cmake
++++ b/packages/openssl.cmake
+@@ -6,7 +6,7 @@ ExternalProject_Add(openssl
+     GIT_REPOSITORY https://github.com/openssl/openssl.git
+     SOURCE_DIR ${SOURCE_LOCATION}
+     GIT_CLONE_FLAGS "--sparse --filter=tree:0"
+-    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !test"
++    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
+     GIT_REMOTE_NAME origin
+     GIT_RESET d8bf6cdd4849925c30e4f1911c7acb49cb34b702
+     GIT_SUBMODULES ""
+-- 
+2.45.1.windows.1
+
