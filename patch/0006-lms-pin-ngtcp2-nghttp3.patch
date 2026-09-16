@@ -1,0 +1,43 @@
+From 651b13de907a7febdef20d1551e6378bc41e0082 Mon Sep 17 00:00:00 2001
+From: Eric Li <lizhi.xmu@gmail.com>
+Date: Thu, 17 Sep 2026 02:30:13 +0800
+Subject: [PATCH] deps: pin ngtcp2/nghttp3 to release tags
+
+Both recipes tracked GIT_TAG main, so an uncached build configures the newest
+upstream code and ngtcp2's configure step fails (options/requirements drifted).
+Pin them to the releases that match the recipe (lms only needs mpv+libbluray;
+these two only serve curl's HTTP/3).
+---
+ packages/nghttp3.cmake | 2 +-
+ packages/ngtcp2.cmake  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/packages/nghttp3.cmake b/packages/nghttp3.cmake
+index 03aa88d..b423ef0 100644
+--- a/packages/nghttp3.cmake
++++ b/packages/nghttp3.cmake
+@@ -4,7 +4,7 @@ ExternalProject_Add(nghttp3
+     GIT_CLONE_FLAGS "--depth=1 --sparse --filter=tree:0"
+     GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests"
+     GIT_SUBMODULES lib/sfparse
+-    GIT_TAG main
++    GIT_TAG v1.15.0
+     GIT_REMOTE_NAME origin
+     UPDATE_COMMAND ""
+     CONFIGURE_COMMAND ${EXEC} ${CMAKE_COMMAND} -H<SOURCE_DIR> -B<BINARY_DIR>
+diff --git a/packages/ngtcp2.cmake b/packages/ngtcp2.cmake
+index 5aa9788..edbf0f0 100644
+--- a/packages/ngtcp2.cmake
++++ b/packages/ngtcp2.cmake
+@@ -6,7 +6,7 @@ ExternalProject_Add(ngtcp2
+     GIT_CLONE_FLAGS "--depth=1 --sparse --filter=tree:0"
+     GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests"
+     GIT_SUBMODULES ""
+-    GIT_TAG main
++    GIT_TAG v1.22.1
+     GIT_REMOTE_NAME origin
+     UPDATE_COMMAND ""
+     CONFIGURE_COMMAND ${EXEC} ${CMAKE_COMMAND} -H<SOURCE_DIR> -B<BINARY_DIR>
+-- 
+2.45.1.windows.1
+
