@@ -1,0 +1,46 @@
+From 73468e52ba8ff625b672f6c8e059e569ef002895 Mon Sep 17 00:00:00 2001
+From: Eric Li <lizhi.xmu@gmail.com>
+Date: Thu, 17 Sep 2026 07:05:31 +0800
+Subject: [PATCH] deps: curl - drop HTTP/3 and the experimental ECH/HTTPS-RR
+ switches
+
+curl.cmake turned on -DUSE_ECH=ON, and curl's CMake then hard-fails when the TLS backend does
+not expose SSL_set1_ech_config_list ('ECH support missing in ...'). With openssl that symbol
+lives in the separate <openssl/ech.h> header, so a freshly built openssl fails the check even
+though the recipe's pin does provide it. Nothing here needs ECH (curl itself calls it
+experimental), and with ngtcp2/nghttp3 removed HTTP/3 must be off as well.
+---
+ packages/curl.cmake | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/packages/curl.cmake b/packages/curl.cmake
+index 5a97754..49e6397 100644
+--- a/packages/curl.cmake
++++ b/packages/curl.cmake
+@@ -37,17 +37,17 @@ ExternalProject_Add(curl
+         -DENABLE_UNICODE=ON
+         -DENABLE_THREADED_RESOLVER=ON
+         -DUSE_NGHTTP2=ON
+-        -DUSE_NGHTTP3=ON
+-        -DUSE_NGTCP2=ON
++        -DUSE_NGHTTP3=OFF
++        -DUSE_NGTCP2=OFF
+         -DUSE_WIN32_IDN=ON
+         -DUSE_WINDOWS_SSPI=ON
+-        -DUSE_ECH=ON
+-        -DUSE_HTTPSRR=ON
++        -DUSE_ECH=OFF
++        -DUSE_HTTPSRR=OFF
+         -DUSE_SSLS_EXPORT=ON
+-        -DUSE_PROXY_HTTP3=ON
++        -DUSE_PROXY_HTTP3=OFF
+         -DCURL_USE_PKGCONFIG=ON
+         -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
+-        "-DCMAKE_C_FLAGS='-DNGHTTP3_STATICLIB -DNGHTTP2_STATICLIB -DNGTCP2_STATICLIB -lz -lbrotlienc -lbrotlidec -lbrotlicommon -lzstd -lcrypt32 -lsecur32'"
++        "-DCMAKE_C_FLAGS='-DNGHTTP2_STATICLIB -lz -lbrotlienc -lbrotlidec -lbrotlicommon -lzstd -lcrypt32 -lsecur32'"
+     BUILD_COMMAND ${EXEC} ninja -C <BINARY_DIR>
+     INSTALL_COMMAND ${EXEC} ninja -C <BINARY_DIR> install
+     LOG_DOWNLOAD 1 LOG_UPDATE 1 LOG_CONFIGURE 1 LOG_BUILD 1 LOG_INSTALL 1
+-- 
+2.45.1.windows.1
+
