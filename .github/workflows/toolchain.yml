@@ -123,7 +123,7 @@ jobs:
         if: ${{ inputs.compiler =='clang' }}
         uses: actions/cache/restore@v6.1.0
         with: 
-          fail-on-cache-miss: true
+          fail-on-cache-miss: false   # lms-fork: a fresh fork has no cache lineage yet
           path: |
             mpv-winbuild-cmake/clang_root
           key: llvm-${{ needs.params.outputs.cache_suffix }}
