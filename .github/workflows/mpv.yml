@@ -311,6 +311,18 @@ jobs:
             sloppiness=locale,time_macros
             compiler_check=none
 
+      - name: Force fresh package sources
+        if: ${{ inputs.needclean == true }}
+        shell: bash
+        run: |
+          # The toolchain cache carries the whole build64 tree, which contains every package's
+          # source dir + gitclone stamp, so ExternalProject skips its clone step and recipe
+          # changes to GIT_CLONE_FLAGS would never be exercised. Drop them to force re-clones.
+          echo "needclean: dropping cached package sources and stamps"
+          rm -rf mpv-winbuild-cmake/build${{ matrix.bit }}/packages/*-prefix || true
+          rm -rf mpv-winbuild-cmake/src_packages || true
+          mkdir -p mpv-winbuild-cmake/src_packages
+
       - name: Download mpv patch
         if: ${{ needs.params.outputs.patch_note }}
         uses: actions/download-artifact@v8
