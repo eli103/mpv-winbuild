@@ -1,0 +1,46 @@
+From 17927586c13abc370477f6c00643959141319718 Mon Sep 17 00:00:00 2001
+From: Eric Li <lizhi.xmu@gmail.com>
+Date: Thu, 17 Sep 2026 06:12:33 +0800
+Subject: [PATCH] deps: drop ngtcp2/nghttp3 (curl HTTP/3) from the build
+
+They pull in curl's HTTP/3 stack, whose only Windows crypto backend here is openssl's QUIC.
+openssl is pinned with GIT_RESET and patched through `git am --3way`; whenever that pin does
+not land the freshly built openssl is a 4.x master without QUIC, and ngtcp2's configure then
+aborts with 'Unable to build OpenSSL backend due to lack of QUIC support', failing the whole
+build. Media playback needs HTTP/1.1 range requests only, so HTTP/3 is dead weight here:
+curl keeps HTTP/1.1 + HTTP/2 (nghttp2) and the two packages are no longer built.
+---
+ packages/CMakeLists.txt | 2 --
+ packages/curl.cmake     | 2 --
+ 2 files changed, 4 deletions(-)
+
+diff --git a/packages/CMakeLists.txt b/packages/CMakeLists.txt
+index 1ada4b4..a0f6cad 100644
+--- a/packages/CMakeLists.txt
++++ b/packages/CMakeLists.txt
+@@ -87,8 +87,6 @@ list(APPEND ep
+     libaribcaption
+     libsixel
+     ffmpeg
+-    ngtcp2
+-    nghttp3
+     nghttp2
+     c-ares
+     libpsl
+diff --git a/packages/curl.cmake b/packages/curl.cmake
+index 9e2130b..14c9b18 100644
+--- a/packages/curl.cmake
++++ b/packages/curl.cmake
+@@ -4,9 +4,7 @@ ExternalProject_Add(curl
+         c-ares
+         libpsl
+         libssh
+-        ngtcp2
+         nghttp2
+-        nghttp3
+         openssl
+         zlib
+         zstd
+-- 
+2.45.1.windows.1
+
