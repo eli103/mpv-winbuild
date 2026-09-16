@@ -317,11 +317,15 @@ jobs:
         run: |
           # The toolchain cache carries the whole build64 tree, which contains every package's
           # source dir + gitclone stamp, so ExternalProject skips its clone step and recipe
-          # changes to GIT_CLONE_FLAGS would never be exercised. Drop them to force re-clones.
-          echo "needclean: dropping cached package sources and stamps"
-          rm -rf mpv-winbuild-cmake/build${{ matrix.bit }}/packages/*-prefix || true
-          rm -rf mpv-winbuild-cmake/src_packages || true
-          mkdir -p mpv-winbuild-cmake/src_packages
+          # changes to GIT_CLONE_FLAGS would never be exercised. Wipe only the packages whose
+          # clone flags we patch (the ones that used `sparse-checkout set --no-cone /* !tests`,
+          # which never materialised sub-directories); everything else keeps its cached tree.
+          PKGS="avisynth-headers brotli curl expat ffmpeg fribidi glslang harfbuzz libmysofa libpsl libsdl2 libsixel libxml2 nghttp3 ngtcp2 openssl"
+          for p in $PKGS; do
+            rm -rf "mpv-winbuild-cmake/build${{ matrix.bit }}/packages/$p-prefix"
+            rm -rf "mpv-winbuild-cmake/src_packages/$p"
+          done
+          echo "needclean: dropped cached sources/stamps for: $PKGS"
 
       - name: Download mpv patch
         if: ${{ needs.params.outputs.patch_note }}
