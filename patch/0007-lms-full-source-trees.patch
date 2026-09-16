@@ -1,16 +1,16 @@
-From 99ecc34dfa3070879dcce1baeeab93f9d9924086 Mon Sep 17 00:00:00 2001
+From 7e61dd43b58f68401b4512e33b3d196e47496f5a Mon Sep 17 00:00:00 2001
 From: Eric Li <lizhi.xmu@gmail.com>
-Date: Thu, 17 Sep 2026 03:15:33 +0800
+Date: Thu, 17 Sep 2026 03:16:45 +0800
 Subject: [PATCH] deps: materialise full source trees (sparse patterns missed
  sub-directories)
 
-The recipes cloned with `--sparse` and then `sparse-checkout set --no-cone /* !tests`.
-In gitignore syntax `/*` matches top-level entries only, so sub-directories were never
-checked out. nghttp3's CMakeLists sets CMAKE_MODULE_PATH to <src>/cmake and then does
-include(Version) -> 'include could not find requested file: Version' -> configure fails.
-Upstream does not hit this because their cached build tree skips configure entirely.
-Affected recipes now materialise the full tree. The three intentionally narrow recipes
-(angle-headers, amf, ...) are untouched.
+Recipes clone with `--sparse` then `sparse-checkout set --no-cone /* !tests`. In gitignore
+syntax `/*` matches top-level entries only, so sub-directories are never checked out:
+nghttp3's CMakeLists sets CMAKE_MODULE_PATH to <src>/cmake and does include(Version),
+which fails with 'include could not find requested file: Version'.
+Upstream never hits this because their cached build tree skips configure entirely.
+All 'everything but X' recipes now materialise the full tree; the three intentionally
+narrow ones (angle-headers / amf / ...) are untouched.
 ---
  packages/avisynth-headers.cmake | 2 +-
  packages/brotli.cmake           | 2 +-
@@ -57,7 +57,7 @@ index 9316c17..d5c0b14 100644
      CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR> -B<BINARY_DIR>
          -G Ninja
 diff --git a/packages/curl.cmake b/packages/curl.cmake
-index bda7d40..6f6d9bb 100644
+index 9e2130b..690421e 100644
 --- a/packages/curl.cmake
 +++ b/packages/curl.cmake
 @@ -13,7 +13,7 @@ ExternalProject_Add(curl
@@ -66,7 +66,7 @@ index bda7d40..6f6d9bb 100644
      GIT_CLONE_FLAGS "--filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests !docs"
 +    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
-     PATCH_COMMAND ""
+     PATCH_COMMAND ${EXEC} git am --3way ${CMAKE_CURRENT_SOURCE_DIR}/curl-*.patch
      UPDATE_COMMAND ""
      CONFIGURE_COMMAND ${EXEC} ${CMAKE_COMMAND} -H<SOURCE_DIR> -B<BINARY_DIR>
 diff --git a/packages/expat.cmake b/packages/expat.cmake
@@ -200,7 +200,7 @@ index 2148bd5..5eff989 100644
      CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR> -B<BINARY_DIR>
          -G Ninja
 diff --git a/packages/nghttp3.cmake b/packages/nghttp3.cmake
-index 03aa88d..89f9d27 100644
+index b423ef0..f91d892 100644
 --- a/packages/nghttp3.cmake
 +++ b/packages/nghttp3.cmake
 @@ -2,7 +2,7 @@ ExternalProject_Add(nghttp3
@@ -210,10 +210,10 @@ index 03aa88d..89f9d27 100644
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests"
 +    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
      GIT_SUBMODULES lib/sfparse
-     GIT_TAG main
+     GIT_TAG v1.15.0
      GIT_REMOTE_NAME origin
 diff --git a/packages/ngtcp2.cmake b/packages/ngtcp2.cmake
-index 5aa9788..f0d9112 100644
+index edbf0f0..a1a30c9 100644
 --- a/packages/ngtcp2.cmake
 +++ b/packages/ngtcp2.cmake
 @@ -4,7 +4,7 @@ ExternalProject_Add(ngtcp2
@@ -223,7 +223,7 @@ index 5aa9788..f0d9112 100644
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests"
 +    GIT_CLONE_POST_COMMAND "sparse-checkout disable"
      GIT_SUBMODULES ""
-     GIT_TAG main
+     GIT_TAG v1.22.1
      GIT_REMOTE_NAME origin
 diff --git a/packages/openssl.cmake b/packages/openssl.cmake
 index 7510e50..c2e6241 100644
