@@ -1,16 +1,19 @@
-From 5e0d2135d08a56722041a8b877624fddbccd24df Mon Sep 17 00:00:00 2001
+From 74906baed1d73c51ea860983fc20837ea766611f Mon Sep 17 00:00:00 2001
 From: Eric Li <lizhi.xmu@gmail.com>
-Date: Thu, 17 Sep 2026 04:39:49 +0800
-Subject: [PATCH] deps: clone complete source trees (drop --sparse /
- --filter=tree:0)
+Date: Thu, 17 Sep 2026 05:25:53 +0800
+Subject: [PATCH] deps: keep each recipe's clone depth and fetch GIT_RESET
+ commits
 
-Recipes cloned with `--sparse` plus `sparse-checkout set --no-cone /* !tests`. In gitignore
-syntax `/*` only matches top-level entries, so sub-directories were never materialised:
-ngtcp2/nghttp3 then fail with `include could not find requested file: Version` because
-CMAKE_MODULE_PATH points at <src>/cmake.  Verified locally that a plain depth-1 clone does
-contain cmake/Version.cmake, so materialising the whole tree is the fix.
-The three intentionally narrow recipes (angle-headers / amf-headers / ...) are untouched.
+Round 4 dropped --filter=tree:0 but also forced --depth=1 everywhere. For recipes that
+pin a commit with GIT_RESET and patch with `git am --3way` (openssl, vapoursynth, ...)
+that removed the objects: the forced update's `git reset --hard <sha>` failed, openssl
+stayed on master and was configured without QUIC, and ngtcp2 then failed with
+'Unable to build OpenSSL backend due to lack of QUIC support'.
+
+Now only --sparse/--filter=tree:0 are dropped (each recipe keeps its own depth), and
+force-update additionally fetches the GIT_RESET commit before reset_head.sh runs.
 ---
+ cmake/custom_steps.cmake        | 4 ++++
  packages/avisynth-headers.cmake | 3 +--
  packages/brotli.cmake           | 3 +--
  packages/curl.cmake             | 3 +--
@@ -27,10 +30,25 @@ The three intentionally narrow recipes (angle-headers / amf-headers / ...) are u
  packages/nghttp3.cmake          | 3 +--
  packages/ngtcp2.cmake           | 3 +--
  packages/openssl.cmake          | 3 +--
- 16 files changed, 16 insertions(+), 32 deletions(-)
+ 17 files changed, 20 insertions(+), 32 deletions(-)
 
+diff --git a/cmake/custom_steps.cmake b/cmake/custom_steps.cmake
+index a3e82cd..19838bf 100644
+--- a/cmake/custom_steps.cmake
++++ b/cmake/custom_steps.cmake
+@@ -115,6 +115,10 @@ PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_
+         WORKING_DIRECTORY <SOURCE_DIR>
+         COMMAND bash -c "git am --abort 2> /dev/null || true"
+         COMMAND bash -c "git fetch --filter=tree:0 --no-recurse-submodules || true"
++        # lms: the fetch above only gets the branch, so a GIT_RESET commit is missing
++        # on a fresh/shallow clone and reset_head.sh would fail (e.g. openssl, which
++        # then builds without QUIC and breaks ngtcp2). Fetch the pinned commit directly.
++        COMMAND bash -c "test -z \"${git_reset}\" || git fetch --depth=1 --no-tags --no-recurse-submodules origin ${git_reset} || true"
+         COMMAND ${stamp_dir}/reset_head.sh
+     )
+     ExternalProject_Add_StepTargets(${_name} force-update)
 diff --git a/packages/avisynth-headers.cmake b/packages/avisynth-headers.cmake
-index eee0180..456bf9e 100644
+index eee0180..d038deb 100644
 --- a/packages/avisynth-headers.cmake
 +++ b/packages/avisynth-headers.cmake
 @@ -1,8 +1,7 @@
@@ -39,12 +57,12 @@ index eee0180..456bf9e 100644
      SOURCE_DIR ${SOURCE_LOCATION}
 -    GIT_CLONE_FLAGS "--sparse --filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !distrib"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      GIT_SUBMODULES ""
      UPDATE_COMMAND ""
      GIT_RESET 21fdc997f9724b994896ba5520ddf64d677976b3
 diff --git a/packages/brotli.cmake b/packages/brotli.cmake
-index 9316c17..e0c4a3d 100644
+index 9316c17..7063805 100644
 --- a/packages/brotli.cmake
 +++ b/packages/brotli.cmake
 @@ -1,8 +1,7 @@
@@ -53,12 +71,12 @@ index 9316c17..e0c4a3d 100644
      SOURCE_DIR ${SOURCE_LOCATION}
 -    GIT_CLONE_FLAGS "--sparse --filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests !js !java !research"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      UPDATE_COMMAND ""
      CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR> -B<BINARY_DIR>
          -G Ninja
 diff --git a/packages/curl.cmake b/packages/curl.cmake
-index 9e2130b..27ac7c5 100644
+index 9e2130b..4817120 100644
 --- a/packages/curl.cmake
 +++ b/packages/curl.cmake
 @@ -12,8 +12,7 @@ ExternalProject_Add(curl
@@ -67,12 +85,12 @@ index 9e2130b..27ac7c5 100644
      SOURCE_DIR ${SOURCE_LOCATION}
 -    GIT_CLONE_FLAGS "--filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests !docs"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      PATCH_COMMAND ${EXEC} git am --3way ${CMAKE_CURRENT_SOURCE_DIR}/curl-*.patch
      UPDATE_COMMAND ""
      CONFIGURE_COMMAND ${EXEC} ${CMAKE_COMMAND} -H<SOURCE_DIR> -B<BINARY_DIR>
 diff --git a/packages/expat.cmake b/packages/expat.cmake
-index a39602c..c432f35 100644
+index a39602c..d6df8bd 100644
 --- a/packages/expat.cmake
 +++ b/packages/expat.cmake
 @@ -1,8 +1,7 @@
@@ -81,12 +99,12 @@ index a39602c..c432f35 100644
      SOURCE_DIR ${SOURCE_LOCATION}
 -    GIT_CLONE_FLAGS "--sparse --filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !testdata"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      UPDATE_COMMAND ""
      GIT_REMOTE_NAME origin
      CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR>/expat -B<BINARY_DIR>
 diff --git a/packages/ffmpeg.cmake b/packages/ffmpeg.cmake
-index b9ab7a3..9b0e9c5 100644
+index b9ab7a3..d14a1e9 100644
 --- a/packages/ffmpeg.cmake
 +++ b/packages/ffmpeg.cmake
 @@ -46,8 +46,7 @@ ExternalProject_Add(ffmpeg
@@ -95,12 +113,12 @@ index b9ab7a3..9b0e9c5 100644
      SOURCE_DIR ${SOURCE_LOCATION}
 -    GIT_CLONE_FLAGS "--sparse --filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests/ref/fate"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      UPDATE_COMMAND ""
      CONFIGURE_COMMAND ${EXEC} CONF=1 <SOURCE_DIR>/configure
          --cross-prefix=${TARGET_ARCH}-
 diff --git a/packages/fribidi.cmake b/packages/fribidi.cmake
-index 40455a4..d6e303d 100644
+index 40455a4..5c9a00e 100644
 --- a/packages/fribidi.cmake
 +++ b/packages/fribidi.cmake
 @@ -1,8 +1,7 @@
@@ -109,12 +127,12 @@ index 40455a4..d6e303d 100644
      SOURCE_DIR ${SOURCE_LOCATION}
 -    GIT_CLONE_FLAGS "--sparse --filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !test"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      UPDATE_COMMAND ""
      CONFIGURE_COMMAND ${EXEC} CONF=1 meson setup <BINARY_DIR> <SOURCE_DIR>
          --prefix=${MINGW_INSTALL_PREFIX}
 diff --git a/packages/glslang.cmake b/packages/glslang.cmake
-index ca59d42..e6a9e75 100644
+index ca59d42..67b76c1 100644
 --- a/packages/glslang.cmake
 +++ b/packages/glslang.cmake
 @@ -1,8 +1,7 @@
@@ -123,12 +141,12 @@ index ca59d42..e6a9e75 100644
      SOURCE_DIR ${SOURCE_LOCATION}
 -    GIT_CLONE_FLAGS "--sparse --filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !Test"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      GIT_REMOTE_NAME origin
      GIT_TAG main
      UPDATE_COMMAND ""
 diff --git a/packages/harfbuzz.cmake b/packages/harfbuzz.cmake
-index 410494e..1691d80 100644
+index 410494e..0f7f74d 100644
 --- a/packages/harfbuzz.cmake
 +++ b/packages/harfbuzz.cmake
 @@ -6,8 +6,7 @@ ExternalProject_Add(harfbuzz
@@ -137,12 +155,12 @@ index 410494e..1691d80 100644
      GIT_TAG main
 -    GIT_CLONE_FLAGS "--sparse --filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !test"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      UPDATE_COMMAND ""
      CONFIGURE_COMMAND ${EXEC} CONF=1 meson setup <BINARY_DIR> <SOURCE_DIR>
          --prefix=${MINGW_INSTALL_PREFIX}
 diff --git a/packages/libmysofa.cmake b/packages/libmysofa.cmake
-index 6416a6c..b7a41c5 100644
+index 6416a6c..4b65727 100644
 --- a/packages/libmysofa.cmake
 +++ b/packages/libmysofa.cmake
 @@ -4,8 +4,7 @@ ExternalProject_Add(libmysofa
@@ -151,12 +169,12 @@ index 6416a6c..b7a41c5 100644
      GIT_TAG main
 -    GIT_CLONE_FLAGS "--sparse --filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !tests"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      UPDATE_COMMAND ""
      CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR> -B<BINARY_DIR>
          -G Ninja
 diff --git a/packages/libpsl.cmake b/packages/libpsl.cmake
-index ab94fb7..8fa6559 100644
+index ab94fb7..a3d90f6 100644
 --- a/packages/libpsl.cmake
 +++ b/packages/libpsl.cmake
 @@ -1,8 +1,7 @@
@@ -165,12 +183,12 @@ index ab94fb7..8fa6559 100644
      SOURCE_DIR ${SOURCE_LOCATION}
 -    GIT_CLONE_FLAGS "--sparse --filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !/fuzz !tests !tools tools/meson.build"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      GIT_REMOTE_NAME origin
      GIT_RESET aa3a80e18f25caf3916636c8668dcc0fff7c016d
      UPDATE_COMMAND ""
 diff --git a/packages/libsdl2.cmake b/packages/libsdl2.cmake
-index f84e5dd..51bea3e 100644
+index f84e5dd..c969819 100644
 --- a/packages/libsdl2.cmake
 +++ b/packages/libsdl2.cmake
 @@ -4,8 +4,7 @@ ExternalProject_Add(libsdl2
@@ -179,12 +197,12 @@ index f84e5dd..51bea3e 100644
      SOURCE_DIR ${SOURCE_LOCATION}
 -    GIT_CLONE_FLAGS "--sparse --filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !test"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      UPDATE_COMMAND ""
      GIT_REMOTE_NAME origin
      GIT_TAG SDL2
 diff --git a/packages/libsixel.cmake b/packages/libsixel.cmake
-index 373194b..47d50bf 100644
+index 373194b..5144bf1 100644
 --- a/packages/libsixel.cmake
 +++ b/packages/libsixel.cmake
 @@ -1,8 +1,7 @@
@@ -193,12 +211,12 @@ index 373194b..47d50bf 100644
      SOURCE_DIR ${SOURCE_LOCATION}
 -    GIT_CLONE_FLAGS "--sparse --filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !images"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      UPDATE_COMMAND ""
      GIT_RESET af12e5bc6f3f69ad83479da85ddb371420da9b17
      CONFIGURE_COMMAND ${EXEC} <SOURCE_DIR>/autogen.sh && CONF=1 <SOURCE_DIR>/configure
 diff --git a/packages/libxml2.cmake b/packages/libxml2.cmake
-index 2148bd5..691bf29 100644
+index 2148bd5..c465eea 100644
 --- a/packages/libxml2.cmake
 +++ b/packages/libxml2.cmake
 @@ -4,8 +4,7 @@ ExternalProject_Add(libxml2
@@ -207,7 +225,7 @@ index 2148bd5..691bf29 100644
      SOURCE_DIR ${SOURCE_LOCATION}
 -    GIT_CLONE_FLAGS "--sparse --filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !result !test"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      UPDATE_COMMAND ""
      CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR> -B<BINARY_DIR>
          -G Ninja
@@ -240,7 +258,7 @@ index 5aa9788..840fef7 100644
      GIT_TAG main
      GIT_REMOTE_NAME origin
 diff --git a/packages/openssl.cmake b/packages/openssl.cmake
-index 7510e50..b4c1939 100644
+index 7510e50..2e3adba 100644
 --- a/packages/openssl.cmake
 +++ b/packages/openssl.cmake
 @@ -5,8 +5,7 @@ ExternalProject_Add(openssl
@@ -249,7 +267,7 @@ index 7510e50..b4c1939 100644
      SOURCE_DIR ${SOURCE_LOCATION}
 -    GIT_CLONE_FLAGS "--sparse --filter=tree:0"
 -    GIT_CLONE_POST_COMMAND "sparse-checkout set --no-cone /* !test"
-+    GIT_CLONE_FLAGS "--depth=1"
++    GIT_CLONE_FLAGS ""
      GIT_REMOTE_NAME origin
      GIT_RESET d8bf6cdd4849925c30e4f1911c7acb49cb34b702
      GIT_SUBMODULES ""
