@@ -302,7 +302,7 @@ jobs:
       # it; the key never collides with the upstream ones, and a unique per-run key + prefix
       # restore always picks the newest state, including from runs that failed later on.
       - name: Restore LGPL Build Cache (lms)
-        if: ${{ matrix.lgpl == true && inputs.no_save_cache != true }}
+        if: ${{ matrix.lgpl == true && inputs.no_save_cache != true && inputs.needclean != true }}
         uses: actions/cache/restore@v6.1.0
         with:
           path: |
