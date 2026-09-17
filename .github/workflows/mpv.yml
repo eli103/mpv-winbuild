@@ -344,10 +344,18 @@ jobs:
           # check-git() then fakes the download stamp and the clone never runs, so the package
           # is configured against an empty directory ("does not appear to contain CMakeLists.txt").
           # Self-heal: if src_packages/<pkg> is not a git tree, drop it and its stamp.
+          # A cache archive is not a faithful copy of a source tree: a directory can come back
+          # with .git present but the work tree incomplete, and then configure fails with
+          # "does not appear to contain CMakeLists.txt". Treat a source as broken unless it
+          # looks like a checked-out tree, and drop it (plus its stamp) so it is fetched again.
           for d in mpv-winbuild-cmake/src_packages/*/; do
             p=$(basename "$d")
-            if [ ! -e "$d/.git" ]; then
-              echo "self-heal: source for $p is not a git tree -> refetch"
+            ok=0
+            for f in CMakeLists.txt configure configure.ac meson.build Makefile.am setup.py; do
+              [ -e "$d$f" ] && ok=1 && break
+            done
+            if [ "$ok" = "0" ] || [ ! -e "$d/.git" ]; then
+              echo "self-heal: source for $p looks incomplete -> refetch"
               rm -rf "$d" "mpv-winbuild-cmake/build${{ matrix.bit }}/packages/$p-prefix"
             fi
           done
