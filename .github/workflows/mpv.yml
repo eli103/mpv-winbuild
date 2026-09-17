@@ -333,7 +333,7 @@ jobs:
           # Cached trees make ExternalProject skip its clone step, so recipe changes to
           # GIT_CLONE_FLAGS would never be exercised, and packages pinned via GIT_RESET or built
           # with the GPL defaults must not leak into the LGPL build (mpv/ffmpeg).
-          PKGS="mpv ffmpeg avisynth-headers brotli curl expat fribidi glslang harfbuzz libmysofa libpsl libsdl2 libsixel libxml2 openssl"
+          PKGS="mpv ffmpeg avisynth-headers brotli curl expat fribidi glslang harfbuzz libmysofa libpsl libsdl2 libsixel libxml2 openssl spirv-cross spirv-tools"
           for p in $PKGS; do
             rm -rf "mpv-winbuild-cmake/build${{ matrix.bit }}/packages/$p-prefix"
             rm -rf "mpv-winbuild-cmake/src_packages/$p"
