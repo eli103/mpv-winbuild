@@ -1,0 +1,38 @@
+From 79a90077634d7bfea67e582a375abed44ee03ce0 Mon Sep 17 00:00:00 2001
+From: Eric Li <lizhi.xmu@gmail.com>
+Date: Thu, 17 Sep 2026 08:13:22 +0800
+Subject: [PATCH] deps: treat a failing GIT_RESET as best-effort
+
+xz/zstd pin commits via GIT_RESET; when the object is missing (shallow clone, or a commit
+upstream no longer serves) `git reset --hard <sha>` exits 128 and the aggregate update target
+fails the whole build. These pins only buy reproducibility and every package still builds
+from its branch head, so run both reset paths as best-effort.
+---
+ cmake/custom_steps.cmake | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/cmake/custom_steps.cmake b/cmake/custom_steps.cmake
+index 19838bf..defad25 100644
+--- a/cmake/custom_steps.cmake
++++ b/cmake/custom_steps.cmake
+@@ -21,7 +21,7 @@ function(cleanup _name _last_step)
+             set(remove_cmd "find <BINARY_DIR> -mindepth 1 -delete && git -C <SOURCE_DIR> clean -df")
+         endif()
+         set(COMMAND_FORCE_UPDATE COMMAND bash -c "git -C <SOURCE_DIR> am --abort 2> /dev/null || true"
+-                                 COMMAND ${stamp_dir}/reset_head.sh
++                                 COMMAND bash -c "${stamp_dir}/reset_head.sh || true"
+                                  COMMAND bash -c "git -C <SOURCE_DIR> restore .")
+     endif()
+ 
+@@ -119,7 +119,7 @@ PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_
+         # on a fresh/shallow clone and reset_head.sh would fail (e.g. openssl, which
+         # then builds without QUIC and breaks ngtcp2). Fetch the pinned commit directly.
+         COMMAND bash -c "test -z \"${git_reset}\" || git fetch --depth=1 --no-tags --no-recurse-submodules origin ${git_reset} || true"
+-        COMMAND ${stamp_dir}/reset_head.sh
++        COMMAND bash -c "${stamp_dir}/reset_head.sh || true"
+     )
+     ExternalProject_Add_StepTargets(${_name} force-update)
+ 
+-- 
+2.45.1.windows.1
+
